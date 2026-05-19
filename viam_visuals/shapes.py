@@ -263,12 +263,16 @@ class Arrow(Visual):
         """Build an Arrow pointing from ``start`` to ``end``.
 
         The arrow's pose origin sits at ``start``; its orientation
-        vector points toward ``end``; its length equals the distance
-        between them. Useful for "draw a force vector at this hand
-        pose" / "show motion plan from A to B" without computing the
-        orientation yourself.
+        vector is the unit vector ``(end - start) / length``; its
+        ``length_mm`` equals ``|end - start|``. Useful for "draw a
+        force vector at this hand pose" / "show motion plan from A
+        to B" without computing the orientation yourself — the
+        direction vector is normalized for you and the resulting
+        ``ox/oy/oz`` are guaranteed to be a unit vector regardless
+        of input magnitudes.
 
-        Raises ``ValueError`` if start and end coincide.
+        Raises ``ValueError`` if ``|end - start| < 1e-6`` (zero-length
+        arrow would have an undefined direction).
         """
         import math as _math
         dx = end.x - start.x
@@ -330,9 +334,20 @@ class Mesh(Visual):
 class PointCloud(Visual):
     """Point cloud loaded from a PCD asset.
 
-    Set ``chunked=True`` with a positive ``chunk_size`` to opt into
-    experimental chunked delivery. The chunked-delivery wire contract
-    is unverified — see the upstream visualization library for details.
+    PCD bytes must match RDK's ``pointcloud.ToPCD`` format byte-for-byte
+    (binary, ``VERSION .7`` literal, no leading ``#`` comments). The
+    viewer's parser is strict-order; ASCII / binary_compressed / extra
+    comments silently fail.
+
+    .. warning::
+        Setting ``chunked=True`` with a positive ``chunk_size`` opts
+        into experimental chunked delivery: the service ships chunk 0
+        inline in the initial transform with a ``metadata.chunks``
+        sub-struct, and exposes the rest via the ``get_entity_chunk``
+        DoCommand. **The viewer's behavior on this contract is
+        unverified** — whether it actually fetches subsequent chunks
+        is open. Leave ``chunked=False`` unless you're specifically
+        probing the chunked-delivery path.
     """
 
     pointcloud_path: str = ""

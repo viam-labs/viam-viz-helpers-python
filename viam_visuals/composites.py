@@ -56,8 +56,24 @@ __all__ = [
 
 @dataclass
 class Composite:
-    """Base class for multi-Visual composites. Subclasses override
-    :meth:`to_visuals` to return the expanded list."""
+    """Base class for multi-Visual composites — typed wrappers around
+    common multi-item patterns (coordinate-frame triads, polylines,
+    wireframe bounding boxes) that the wire format has no first-class
+    primitive for.
+
+    Subclasses override :meth:`to_visuals` to return the expanded
+    list of Visuals. ``Scene.add(composite)`` calls this and installs
+    each constituent independently — the composite itself is not
+    tracked; only its expanded Visuals are.
+
+    .. warning::
+        Constituent labels are derived from the composite's
+        ``label`` / ``label_prefix`` field. Two composites whose
+        constituents would share a label collide:
+        ``Scene.add(CoordinateFrame("f", ...), CoordinateFrame("f", ...))``
+        raises ``ValueError`` because both expand into a
+        ``"f"`` anchor sphere. Pick distinct labels per composite.
+    """
 
     def to_visuals(self) -> List[Visual]:  # pragma: no cover - abstract
         raise NotImplementedError
@@ -83,8 +99,12 @@ class CoordinateFrame(Composite):
     ``axis_radius_mm`` parameterize the arrow size; per-axis colors
     can each be customized independently.
 
-    Animations attach to the anchor; the axes inherit motion through
-    the parent-frame chain. To probe whether the renderer composes
+    Animations attach to the anchor; the axes inherit motion because
+    each axis arrow's ``parent_frame`` is set to the anchor's label.
+    When the anchor's pose updates, the renderer composes that
+    transform onto each child — so a single :class:`Spin` on the
+    composite rotates the entire triad as one rigid body, no
+    per-axis animation needed. To probe whether the renderer composes
     through chained parents, set an animation here and watch the
     triad sweep coherently.
 

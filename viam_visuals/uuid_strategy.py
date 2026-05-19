@@ -57,11 +57,22 @@ def initial_uuid(label: str, strategy: str) -> bytes:
 
 def versioned_uuid(label: str) -> bytes:
     """Allocate a fresh UUID for ``label`` of the form
-    ``<label>_<epoch_ms>_<counter>``. Used by the ``versioned``
-    strategy and by REMOVED→ADDED transitions in stable strategy
-    when the entity's scene-graph membership changes (the renderer
-    caches REMOVED UUIDs and drops subsequent ADDEDs for the same
-    one)."""
+    ``<label>_<epoch_ms>_<counter>``.
+
+    Used by the ``versioned`` strategy on every emit, and by the
+    library's respawn intercept on REMOVED→ADDED transitions even
+    under the ``stable`` strategy when an entity's metadata changes
+    (color, opacity, parent_frame, show_axes_helper, invisible) or
+    its scene-graph membership flips (flicker / lifecycle off→on).
+
+    Why rotate the UUID instead of re-using the original? The
+    renderer caches REMOVED UUIDs and silently drops subsequent
+    ADDED events with the same UUID — so re-adding ``"my_label"``
+    after removing it does nothing. The timestamp suffix guarantees
+    uniqueness across runs; the atomic counter is a tiebreaker
+    against bursts within the same millisecond (without it, two
+    re-adds in the same ms collide and the second still gets cached).
+    """
     global _counter
     with _counter_lock:
         _counter += 1

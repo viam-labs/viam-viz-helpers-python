@@ -92,10 +92,15 @@ def lerp_pose(a: PoseLike, b: PoseLike, t: float) -> Pose:
     in SO(3), then converted back. This avoids the discontinuities
     of the naive lerp-and-normalize on ``(ox, oy, oz)`` when the
     interpolation path passes through the OV singularity at
-    ``|oz| = 1`` (where the renderer's roll reference is unstable).
+    ``|oz| = 1``. At that singularity the renderer's roll reference
+    is undefined, so naive lerp produces ~45° instantaneous flips of
+    ``theta`` per tick as the path approaches and leaves the pole —
+    visually a stuttering twist. Quaternion SLERP routes around the
+    singularity smoothly.
 
     ``t`` should be in ``[0, 1]``; values outside that range
-    extrapolate (no clamping).
+    extrapolate (no clamping is applied). Clamp the caller side if
+    you want endpoints to hold steady.
 
     Useful for motion-plan playback: feed in two adjacent waypoint
     poses from a planner output, interpolate the runner's pose at

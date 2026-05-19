@@ -64,11 +64,27 @@ REMOVED = "removed"
 class SceneEvent:
     """One state-change record produced by Scene mutation methods.
 
-    ``kind`` is one of ``"added"`` / ``"updated"`` / ``"removed"``.
-    ``label`` identifies the visual. ``item_dict`` is the wire-format
-    dict for ADDED/UPDATED (the current state); empty for REMOVED.
-    ``paths`` is the list of field-mask paths for UPDATED events
-    (always camelCase; the renderer ignores snake_case).
+    Three event shapes:
+
+    - ``kind="added"``: a Visual entered the scene. ``item_dict`` is
+      the wire-format dict the consumer should turn into ADDED on the
+      wire. ``paths`` is empty.
+    - ``kind="updated"``: a Visual changed. ``item_dict`` carries the
+      current state. ``paths`` is the camelCase field-mask path list
+      the renderer's UPDATED handler will honor — **except** when
+      ``paths`` is an empty list, which is the respawn signal: a
+      metadata change (color / opacity / parent_frame / show_axes_helper /
+      invisible) the renderer drops on UPDATED, so the consumer must
+      translate this event into REMOVED + ADDED with a fresh UUID. See
+      :meth:`Scene.update` for the escalation rule.
+    - ``kind="removed"``: a Visual left the scene. ``item_dict`` is
+      empty; ``paths`` is empty.
+
+    The ``paths`` strings MUST be camelCase. The viewer's UPDATED
+    handler ignores snake_case paths silently — animations using
+    snake_case paths produce no visible motion. See
+    LESSONS.md::snake-case-field-mask-paths-do-not-work in the
+    consuming example module.
     """
 
     kind: str
@@ -243,16 +259,30 @@ class Scene:
         UPDATED events for the changed visuals. Composites expand;
         each constituent diffs independently.
 
-        Visuals that haven't changed at all produce no event. Visuals
-        whose only changes are to metadata fields (color, opacity,
-        ``show_axes_helper``, ``invisible``) produce an UPDATED event
-        with ``paths=[]`` — the signal to consumers that a renderer
-        respawn (REMOVE + re-ADD with a fresh UUID) is required. The
-        renderer's UPDATED handler drops ``metadata.*`` paths, so a
-        plain UPDATED with metadata paths would be a no-op at the
-        viewer; ``SceneServiceBase._apply_scene_event`` and the
-        ``apply_events`` DoCommand handler both translate the
-        empty-paths UPDATED into a REMOVE + re-ADD on the wire.
+        Three outcomes per target:
+
+        - **No change** (``new_dict == committed``): no event emitted.
+        - **Pose / geometry change only**: UPDATED event with
+          ``paths`` populated (camelCase field-mask paths the
+          renderer's UPDATED handler honors). Cheap on the wire.
+        - **Metadata change** (color / opacity / parent_frame /
+          show_axes_helper / invisible): UPDATED event with
+          ``paths=[]`` — the **respawn signal**. The renderer drops
+          ``metadata.*`` paths on UPDATED, so a plain UPDATED would
+          be visibly a no-op. The library translates the empty-paths
+          event into REMOVE + re-ADD with a fresh UUID downstream
+          (see :meth:`SceneServiceBase._apply_scene_event` and the
+          ``apply_events`` DoCommand handler). Metadata changes
+          escalate to a respawn even when pose/geom paths are also
+          present in the diff — emitting paths would silently lose
+          the metadata change.
+
+        Respawns are heavier on the wire than UPDATEDs (full
+        Transform + new UUID instead of a partial proto). Callers
+        mutating metadata at the tick rate should snap continuous
+        values to discrete steps via :func:`viam_visuals.snap_step`
+        to bound respawn frequency — see the ``simple_scene_example``
+        moving-box code for the canonical pattern.
 
         Raises :class:`ValueError` if any label isn't in the scene.
         """

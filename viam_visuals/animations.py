@@ -90,11 +90,29 @@ class Animation:
         return out
 
     def apply(self, visual: Any, base: Any, t: float) -> None:
-        """Mutate ``visual`` in place based on ``base`` (rest state)
-        and elapsed time ``t`` (seconds since reconfigure).
+        """Mutate ``visual`` in place based on ``base`` and elapsed
+        time ``t``.
 
-        Default: no-op (Static / Animation-base behavior). Subclasses
-        override.
+        Parameters:
+
+        - ``visual`` — the live Visual stored in the Scene. This is
+          what gets mutated; the next :meth:`Scene.update` call diffs
+          its new ``to_dict()`` against the committed snapshot.
+        - ``base`` — the **rest state** of the visual, captured at
+          install time (:meth:`SceneServiceBase.set_scene` /
+          :meth:`SceneServiceBase.reconfigure_with`). Apply math
+          composes onto this snapshot — e.g., :class:`Orbit` adds a
+          rotating offset to ``base.pose``, :class:`Pulse` adds
+          ``amplitude_mm * sin(...)`` to ``base.radius_mm``. The base
+          is frozen for the life of the entity: mutating ``visual``
+          here does NOT update ``base`` for the next tick, which is
+          what keeps the animation stable across frames.
+        - ``t`` — seconds since the most recent
+          :meth:`SceneServiceBase.reconfigure_with` call (the
+          animation clock resets on reconfigure).
+
+        Default: no-op (Static / Animation-base behavior). Concrete
+        subclasses override this. Return value is ignored.
         """
         return None
 
@@ -294,9 +312,16 @@ class Flicker(Animation):
     """Entity blinks in and out of the scene.
 
     ``duty_cycle`` in [0, 1] is the fraction of each period the entity
-    is visible. ``rotate_uuid_on_readd`` defaults to ``True`` — leave
-    it unless you're specifically demonstrating the renderer's
-    REMOVED-UUID cache bug.
+    is visible (0.5 = half on, half off).
+
+    ``rotate_uuid_on_readd`` defaults to ``True`` and should stay that
+    way for any animation that re-adds an entity. The renderer caches
+    REMOVED UUIDs and silently drops subsequent ADDED events with the
+    same UUID; if you don't rotate, the second on-cycle will not paint
+    and the entity appears stuck off-screen. Set ``False`` only when
+    explicitly demonstrating that renderer cache (the
+    ``geometry_morph`` preset's "broken" grid in the example module is
+    the canonical demo).
     """
 
     period_s: float = 1.0

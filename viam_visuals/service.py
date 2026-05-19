@@ -240,6 +240,17 @@ class SceneServiceBase(WorldStateStore):
         mutates the Visual based on its rest state. The returned
         events are broadcast to subscribers.
 
+        About ``base``: ``self._base_visuals`` is a per-label
+        dictionary populated at :meth:`set_scene` /
+        :meth:`reconfigure_with` time with a deep copy of each
+        installed Visual. It is the snapshot that ``Animation.apply``
+        composes onto each tick — Orbit reads ``base.pose``, Pulse
+        reads ``base.radius_mm`` or ``base.dims_mm``, etc. The base
+        is **frozen** for the life of the entity: it does NOT track
+        runtime mutations. If you need a moving base (e.g., the
+        runner in a trajectory animation), use the Trajectory spec
+        or override ``scene_tick`` and compute composition yourself.
+
         Subclasses can override for custom behavior (mutate Visuals
         directly without going through Animation specs), or call
         ``super().scene_tick(scene, t)`` to chain the default
@@ -461,9 +472,23 @@ class SceneServiceBase(WorldStateStore):
         tracked in :attr:`self.scene` so subclasses can keep
         references and mutate them on each :meth:`tick`.
 
-        Broadcasts REMOVED for any prior state and ADDED for the new
-        state, then restarts the tick task if this service uses
-        animation.
+        Side effects:
+
+        - Replaces :attr:`self.scene` with a fresh :class:`Scene`.
+        - Snapshots each installed Visual into :attr:`_base_visuals`
+          via :func:`copy.deepcopy` for the default :meth:`scene_tick`
+          dispatch (Animation specs compose onto this base).
+        - Calls :meth:`reconfigure_with`, which broadcasts REMOVED
+          for the prior state and ADDED for the new state, cancels
+          any running tick task, and restarts it if any item
+          animates. The animation clock (``self._animation_t0``)
+          resets — animations restart from ``t=0``.
+
+        Label collisions across composites are caller-error: two
+        composites whose constituents share a label (e.g., two
+        ``CoordinateFrame``s with the same ``label``) will raise from
+        :meth:`Scene.add`. Distinct labels are the caller's
+        responsibility.
 
         Example::
 
@@ -509,13 +534,29 @@ class SceneServiceBase(WorldStateStore):
         for prior state and ADDED for the new state, restarting the
         tick task if any items animate.
 
+        Wire-format level entry point — accepts plain dicts in the
+        item shape (see :class:`viam_visuals.Item` and
+        :func:`SceneEvent.item_dict`). Most callers should use
+        :meth:`set_scene` instead, which takes typed Visuals.
+
         Subclasses whose scene is built in code (not from config
         attributes) should override :meth:`reconfigure` to construct
         the item list and call this method directly, instead of
         going through the ``items`` / ``preset`` config plumbing.
 
-        ``None`` arguments use the class defaults (``DEFAULT_TICK_HZ``
-        etc.).
+        Side effects:
+
+        - Cancels any running tick task. The animation clock
+          (``self._animation_t0``) is reset to ``time.monotonic()``;
+          long-running animations restart from ``t=0`` on every
+          reconfigure call.
+        - Broadcasts REMOVED for every prior item, then ADDED for
+          every new item, in deterministic order.
+        - Restarts the tick task if any new item declares an
+          animation (i.e., satisfies ``is_animated``).
+
+        ``None`` arguments use the class defaults (``DEFAULT_TICK_HZ``,
+        ``DEFAULT_UUID_STRATEGY``, ``DEFAULT_PARENT_FRAME``).
         """
         self.tick_hz = float(self.DEFAULT_TICK_HZ if tick_hz is None else tick_hz)
         self.uuid_strategy = str(
@@ -1094,6 +1135,25 @@ class SceneServiceBase(WorldStateStore):
         here. Returns counters for each kind plus a list of per-event
         errors. Errors don't abort the batch — remaining events still
         apply.
+
+        Event semantics:
+
+        - ``added``: install the item, broadcast ADDED with a fresh
+          UUID per the active ``uuid_strategy``.
+        - ``removed``: drop the item and broadcast REMOVED.
+        - ``updated`` with non-empty ``paths``: in-place mutation +
+          broadcast UPDATED with ``updated_fields=paths``. Renderer
+          honors these path mutations on the wire (pose, dims, radius,
+          length — see :data:`viam_visuals.scene.PATH_*` constants).
+        - ``updated`` with **empty** ``paths``: **respawn signal**.
+          The renderer drops ``metadata.*`` paths on UPDATED, so an
+          UPDATED carrying metadata changes would be a visible no-op
+          at the viewer. This handler translates the empty-paths
+          UPDATED into a REMOVE of the current UUID + an ADD with a
+          fresh ``versioned_uuid`` so the renderer re-reads metadata
+          at spawn. Use this when color, opacity, parent_frame,
+          show_axes_helper, or invisible change — :meth:`Scene.update`
+          escalates automatically.
 
         Optional ``namespace`` prefixes every label so multiple drivers
         can share one visualizer without collisions.
