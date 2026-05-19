@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "viam-viz-helpers"
+version = "0.1.0"
+description = "Typed visual scene constructors for Viam world-state-store services and the 3D scene viewer."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Viam Labs" },
+]
+requires-python = ">=3.10"
+dependencies = [
+    "viam-sdk",
+    "numpy",
+    "typing-extensions",
+]
+
+[project.urls]
+Homepage = "https://github.com/viam-labs/viam-viz-helpers"
+Repository = "https://github.com/viam-labs/viam-viz-helpers"
+"Reference module" = "https://github.com/viam-labs/example-visualizations-python"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.setuptools.packages.find]
+include = ["viam_visuals*"]
