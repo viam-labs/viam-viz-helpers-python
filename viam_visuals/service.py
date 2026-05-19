@@ -42,19 +42,11 @@ unit tests can instantiate it without subclassing for every method.
 from __future__ import annotations
 
 import asyncio
-import base64
 import time
-from pathlib import Path
+from collections.abc import AsyncGenerator, Mapping, Sequence
 from typing import (
     Any,
-    AsyncGenerator,
     ClassVar,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
 )
 
 from google.protobuf.field_mask_pb2 import FieldMask
@@ -76,15 +68,14 @@ from viam.resource.types import Model
 from viam.services.worldstatestore import WorldStateStore
 from viam.utils import ValueTypes, struct_to_dict
 
-from ._internal.metadata import build_metadata
 from ._internal.mesh import extract_ply_vertex_colors
+from ._internal.metadata import build_metadata
 from ._internal.pcd import build_pcd_chunk, parse_pcd_binary
 from .animations import Animation
 from .composites import Composite
 from .scene import Scene, SceneEvent, events_to_wire
 from .shapes import Visual
 from .uuid_strategy import VALID_STRATEGIES, initial_uuid, versioned_uuid
-
 
 __all__ = ["SceneServiceBase"]
 
@@ -124,7 +115,7 @@ _POSE_KEY_TO_PATH = {
 }
 
 
-def _base_geom_for_item(item: Mapping[str, Any]) -> Dict[str, Any]:
+def _base_geom_for_item(item: Mapping[str, Any]) -> dict[str, Any]:
     """Shape-specific dim/radius/length fields the animator needs.
     Library default; modules with custom sugar types can override
     via :meth:`SceneServiceBase.base_geom_for_item`."""
@@ -174,16 +165,16 @@ class SceneServiceBase(WorldStateStore):
     DEFAULT_TICK_HZ: ClassVar[float] = 30.0
     DEFAULT_UUID_STRATEGY: ClassVar[str] = "stable"
     DEFAULT_PARENT_FRAME: ClassVar[str] = "world"
-    DEFAULT_PRESET: ClassVar[Optional[str]] = None
+    DEFAULT_PRESET: ClassVar[str | None] = None
     DEFAULT_CHUNK_SIZE_POINTS: ClassVar[int] = 1000
     MAX_TICK_HZ: ClassVar[float] = 30.0
 
     def __init__(self, name: str):
         super().__init__(name)
         self._lock = asyncio.Lock()
-        self._state: Dict[str, Dict[str, Any]] = {}
-        self._subscribers: List[asyncio.Queue] = []
-        self._tick_task: Optional[asyncio.Task] = None
+        self._state: dict[str, dict[str, Any]] = {}
+        self._subscribers: list[asyncio.Queue] = []
+        self._tick_task: asyncio.Task | None = None
         self.tick_hz: float = self.DEFAULT_TICK_HZ
         self.uuid_strategy: str = self.DEFAULT_UUID_STRATEGY
         self.parent_frame: str = self.DEFAULT_PARENT_FRAME
@@ -199,7 +190,7 @@ class SceneServiceBase(WorldStateStore):
         # calling Animation.apply on each animated Visual; the apply
         # method computes deltas relative to base rather than mutating
         # state through itself.
-        self._base_visuals: Dict[str, Visual] = {}
+        self._base_visuals: dict[str, Visual] = {}
 
     # ------------------------------------------------------------------
     # Required hooks — subclass MUST implement
@@ -272,7 +263,7 @@ class SceneServiceBase(WorldStateStore):
             # No scene_tick override needed; defaults dispatch each
             # Animation.apply at tick_hz.
         """
-        events: List[SceneEvent] = []
+        events: list[SceneEvent] = []
         for label in scene.labels():
             v = scene.get(label)
             if v is None:
@@ -300,11 +291,11 @@ class SceneServiceBase(WorldStateStore):
         base_pose: Mapping[str, float],
         base_geom: Mapping[str, Any],
         t: float,
-    ) -> Tuple[
+    ) -> tuple[
         Mapping[str, float],
         Mapping[str, Any],
         Sequence[str],
-        Optional[Mapping[str, Any]],
+        Mapping[str, Any] | None,
     ]:
         """Legacy per-item animation evaluation. Return
         ``(pose_dict, geom_override_dict, field_mask_paths, metadata_override)``.
@@ -368,7 +359,7 @@ class SceneServiceBase(WorldStateStore):
         (e.g., the playground's ``raw_stl``). Default: no-op."""
         return None
 
-    def base_geom_for_item(self, item: Mapping[str, Any]) -> Dict[str, Any]:
+    def base_geom_for_item(self, item: Mapping[str, Any]) -> dict[str, Any]:
         """Override if your module adds sugar primitive types that
         carry shape-specific fields. Default handles box, sphere,
         capsule, arrow, mesh, pointcloud, point."""
@@ -376,7 +367,7 @@ class SceneServiceBase(WorldStateStore):
 
     async def handle_custom_command(
         self, command: Mapping[str, ValueTypes]
-    ) -> Optional[Mapping[str, ValueTypes]]:
+    ) -> Mapping[str, ValueTypes] | None:
         """Handle a DoCommand verb the base class doesn't know about.
         Return ``None`` to fall through to the default debug-snapshot
         reply. Hold ``self._lock`` if you touch ``self._state``.
@@ -406,7 +397,7 @@ class SceneServiceBase(WorldStateStore):
     @classmethod
     def validate_config(
         cls, config: ComponentConfig
-    ) -> Tuple[Sequence[str], Sequence[str]]:
+    ) -> tuple[Sequence[str], Sequence[str]]:
         """Validate the standard schema fields. Subclasses can extend
         by overriding and chaining via ``super().validate_config(...)``.
 
@@ -445,7 +436,7 @@ class SceneServiceBase(WorldStateStore):
         # Pick item source: explicit items > preset > default preset.
         raw_items = attrs.get(ATTR_ITEMS)
         if raw_items:
-            items: List[Dict[str, Any]] = [dict(it) for it in raw_items]
+            items: list[dict[str, Any]] = [dict(it) for it in raw_items]
         else:
             preset_name = attrs.get(ATTR_PRESET, self.DEFAULT_PRESET)
             if preset_name is None:
@@ -462,10 +453,10 @@ class SceneServiceBase(WorldStateStore):
 
     def set_scene(
         self,
-        *visuals: Union[Visual, Composite],
-        tick_hz: Optional[float] = None,
-        uuid_strategy: Optional[str] = None,
-        parent_frame: Optional[str] = None,
+        *visuals: Visual | Composite,
+        tick_hz: float | None = None,
+        uuid_strategy: str | None = None,
+        parent_frame: str | None = None,
     ) -> None:
         """Install typed Visual / Composite objects as the new scene.
         Composites expand to their constituent Visuals; each is
@@ -510,11 +501,16 @@ class SceneServiceBase(WorldStateStore):
         self.scene.add(*visuals)
         # Snapshot each Visual's rest state for the default
         # scene_tick dispatch (Animation.apply takes base, t).
+        # Scene.labels() returns only labels currently in the scene
+        # and Scene.get on those returns a non-None Visual, but mypy
+        # can't track the invariant — filter explicitly.
         import copy as _copy
-        self._base_visuals = {
-            label: _copy.deepcopy(self.scene.get(label))
-            for label in self.scene.labels()
-        }
+        snapshot: dict[str, Visual] = {}
+        for label in self.scene.labels():
+            v = self.scene.get(label)
+            if v is not None:
+                snapshot[label] = _copy.deepcopy(v)
+        self._base_visuals = snapshot
         items = [entry.committed for entry in self.scene._state.values()]
         self.reconfigure_with(
             items,
@@ -526,9 +522,9 @@ class SceneServiceBase(WorldStateStore):
     def reconfigure_with(
         self,
         items: Sequence[Mapping[str, Any]],
-        tick_hz: Optional[float] = None,
-        uuid_strategy: Optional[str] = None,
-        parent_frame: Optional[str] = None,
+        tick_hz: float | None = None,
+        uuid_strategy: str | None = None,
+        parent_frame: str | None = None,
     ) -> None:
         """Install ``items`` as the new scene, broadcasting REMOVED
         for prior state and ADDED for the new state, restarting the
@@ -683,7 +679,7 @@ class SceneServiceBase(WorldStateStore):
             "visible_to_viewer": True,
         }
 
-    def _remove_item(self, label: str) -> Optional[Transform]:
+    def _remove_item(self, label: str) -> Transform | None:
         s = self._state.pop(label, None)
         return s["transform"] if s is not None else None
 
@@ -694,7 +690,7 @@ class SceneServiceBase(WorldStateStore):
         geom: Geometry,
         uuid: bytes,
         parent_frame: str,
-        chunks: Optional[Mapping[str, Any]] = None,
+        chunks: Mapping[str, Any] | None = None,
     ) -> Transform:
         """Assemble a ``Transform`` proto from an item + pose + geom.
         Handles the PLY-vertex-color transcoding to metadata.colors."""
@@ -875,9 +871,9 @@ class SceneServiceBase(WorldStateStore):
     async def list_uuids(
         self,
         *,
-        extra: Optional[Mapping[str, Any]] = None,
-        timeout: Optional[float] = None,
-    ) -> List[bytes]:
+        extra: Mapping[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> list[bytes]:
         async with self._lock:
             return [
                 s["uuid"]
@@ -889,8 +885,8 @@ class SceneServiceBase(WorldStateStore):
         self,
         uuid: bytes,
         *,
-        extra: Optional[Mapping[str, Any]] = None,
-        timeout: Optional[float] = None,
+        extra: Mapping[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> Transform:
         async with self._lock:
             for s in self._state.values():
@@ -906,8 +902,8 @@ class SceneServiceBase(WorldStateStore):
     async def stream_transform_changes(
         self,
         *,
-        extra: Optional[Mapping[str, Any]] = None,
-        timeout: Optional[float] = None,
+        extra: Mapping[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> AsyncGenerator[StreamTransformChangesResponse, None]:
         q: asyncio.Queue = asyncio.Queue(maxsize=256)
         async with self._lock:
@@ -935,7 +931,7 @@ class SceneServiceBase(WorldStateStore):
         self,
         command: Mapping[str, ValueTypes],
         *,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         **kwargs,
     ) -> Mapping[str, ValueTypes]:
         cmd = command.get("command") if command else None
@@ -1079,8 +1075,8 @@ class SceneServiceBase(WorldStateStore):
             "opacity": s["item"].get("opacity"),
         }
 
-    def _apply_patch(self, s: Dict[str, Any], patch: Mapping[str, Any]) -> List[str]:
-        updated_fields: List[str] = []
+    def _apply_patch(self, s: dict[str, Any], patch: Mapping[str, Any]) -> list[str]:
+        updated_fields: list[str] = []
         item = s["item"]
         if "color" in patch:
             item["color"] = dict(patch["color"]) if patch["color"] is not None else None
@@ -1165,7 +1161,7 @@ class SceneServiceBase(WorldStateStore):
         prefix = (namespace + "/") if namespace else ""
 
         added = updated = removed = 0
-        errors: List[str] = []
+        errors: list[str] = []
         async with self._lock:
             for i, evt in enumerate(events):
                 if not isinstance(evt, Mapping):

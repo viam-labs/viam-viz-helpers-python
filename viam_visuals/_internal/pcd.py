@@ -12,13 +12,10 @@ doesn't write new PCDs from scratch.
 
 from __future__ import annotations
 
-from typing import Tuple
-
-
 __all__ = ["parse_pcd_binary", "build_pcd_chunk"]
 
 
-def parse_pcd_binary(pcd_bytes: bytes) -> Tuple[bytes, bytes, int, int]:
+def parse_pcd_binary(pcd_bytes: bytes) -> tuple[bytes, bytes, int, int]:
     """Split a PCDBinary blob into ``(header_bytes, body_bytes,
     stride, total_points)``. Used by chunked-delivery: callers split
     ``body_bytes`` on stride boundaries to emit individual chunks.
@@ -64,7 +61,7 @@ def parse_pcd_binary(pcd_bytes: bytes) -> Tuple[bytes, bytes, int, int]:
     counts = [int(c) for c in count_line[len("COUNT "):].split()]
     if len(sizes) != len(counts):
         raise ValueError(f"PCD: SIZE/COUNT length mismatch ({sizes} vs {counts})")
-    stride = sum(s * c for s, c in zip(sizes, counts))
+    stride = sum(s * c for s, c in zip(sizes, counts, strict=True))
     if stride <= 0:
         raise ValueError(f"PCD: invalid stride {stride}")
     total_points = len(body_bytes) // stride

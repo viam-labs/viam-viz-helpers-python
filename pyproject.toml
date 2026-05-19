@@ -27,7 +27,62 @@ Repository = "https://github.com/viam-labs/viam-viz-helpers-python"
 dev = [
     "pytest",
     "pytest-asyncio",
+    "ruff>=0.7",
+    "mypy>=1.10",
+    "types-protobuf",
 ]
 
 [tool.setuptools.packages.find]
 include = ["viam_visuals*"]
+
+# ---- ruff ----------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+]
+# E501 (line too long): docstrings often exceed 100 cols by a few chars; the
+#   `line-length` setting governs autoformatting, not these warnings.
+# B008 (function-call-in-default): dataclass field(default_factory=...) is
+#   the idiomatic Python form and the lint flags it spuriously.
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401"]   # tests intentionally import for `from viam_visuals import` smoke
+"viam_visuals/_internal/*" = []
+
+# ---- mypy ----------------------------------------------------------------
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+# viam_visuals.service is intentionally lenient about wire-format
+# dict typing. The Viam SDK types DoCommand input/output as a wide
+# union (`bool | SupportsBytes | SupportsFloat | list[ValueTypes] |
+# Mapping[str, ValueTypes] | str | None`); narrowing every access
+# point would require casts that obscure the wire-format logic
+# without catching real bugs (the code already handles bad data via
+# try/except). The `new` and `stream_transform_changes` overrides
+# follow Viam EasyResource / WSS conventions that mypy can't see
+# through the SDK's stubs.
+[[tool.mypy.overrides]]
+module = "viam_visuals.service"
+disable_error_code = [
+    "arg-type",
+    "dict-item",
+    "index",
+    "union-attr",
+    "misc",
+    "override",
+]

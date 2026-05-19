@@ -32,6 +32,15 @@ the full delivery roadmap.
 
 from __future__ import annotations
 
+from . import registry
+from .anim_helpers import (
+    orbit_pose,
+    oscillate_pose,
+    pulse_range,
+    spin_pose,
+    swing_pose,
+    trajectory_pose,
+)
 from .animations import (
     Animation,
     AnimationLike,
@@ -48,6 +57,7 @@ from .animations import (
     Trajectory,
     normalize_animation,
 )
+from .basic_geometry import build_basic_geometry
 from .color import ColorLike, hsv_to_rgb, normalize_color, snap_step
 from .composites import (
     BoundingBox,
@@ -56,28 +66,7 @@ from .composites import (
     Line,
     TrajectoryPlan,
 )
-from .anim_helpers import (
-    orbit_pose,
-    oscillate_pose,
-    pulse_range,
-    spin_pose,
-    swing_pose,
-    trajectory_pose,
-)
 from .pose import Pose, PoseLike, lerp_pose, normalize_pose
-from .shapes import (
-    Arrow,
-    Box,
-    Capsule,
-    Frame,
-    Mesh,
-    Point,
-    PointCloud,
-    Sphere,
-    Visual,
-    to_dicts,
-)
-from . import registry
 from .scene import (
     ADDED,
     GEOM_PATHS,
@@ -107,15 +96,25 @@ from .scene import (
     SceneEvent,
     events_to_wire,
 )
-from .basic_geometry import build_basic_geometry
 from .service import (
     DEFAULT_PARENT_FRAME,
     DEFAULT_TICK_HZ,
     DEFAULT_UUID_STRATEGY,
     SceneServiceBase,
 )
+from .shapes import (
+    Arrow,
+    Box,
+    Capsule,
+    Frame,
+    Mesh,
+    Point,
+    PointCloud,
+    Sphere,
+    Visual,
+    to_dicts,
+)
 from .uuid_strategy import VALID_STRATEGIES, initial_uuid, versioned_uuid
-
 
 __all__ = [
     # Pose / Color / type aliases

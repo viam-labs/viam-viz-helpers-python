@@ -16,11 +16,11 @@ the viewer silently ignores. Don't follow that pattern.
 from __future__ import annotations
 
 import base64
-from typing import Any, List, Mapping, Optional, Tuple
+from collections.abc import Mapping
+from typing import Any
 
 from google.protobuf.struct_pb2 import Struct
 from viam.utils import dict_to_struct
-
 
 __all__ = ["build_metadata", "clamp_u8"]
 
@@ -36,12 +36,12 @@ def clamp_u8(v: Any) -> int:
 
 
 def build_metadata(
-    color: Optional[Mapping[str, Any]] = None,
-    opacity: Optional[float] = None,
+    color: Mapping[str, Any] | None = None,
+    opacity: float | None = None,
     show_axes_helper: bool = False,
     invisible: bool = False,
-    vertex_colors: Optional[List[Tuple[int, int, int]]] = None,
-    chunks: Optional[Mapping[str, Any]] = None,
+    vertex_colors: list[tuple[int, int, int]] | None = None,
+    chunks: Mapping[str, Any] | None = None,
 ) -> Struct:
     """Build a ``Transform.metadata`` Struct in the viewer's schema.
 

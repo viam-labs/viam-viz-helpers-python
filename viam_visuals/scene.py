@@ -43,12 +43,12 @@ against its prior snapshot.
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Union
+from typing import Any
 
 from .composites import Composite
 from .shapes import Visual
-
 
 __all__ = ["Scene", "SceneEvent", "events_to_wire"]
 
@@ -90,7 +90,7 @@ class SceneEvent:
     kind: str
     label: str
     item_dict: Mapping[str, Any] = field(default_factory=dict)
-    paths: List[str] = field(default_factory=list)
+    paths: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -168,18 +168,18 @@ PATH_METADATA_OPACITY = "metadata.opacity"
 PATH_METADATA_SHOW_AXES = "metadata.show_axes_helper"
 PATH_METADATA_INVISIBLE = "metadata.invisible"
 
-POSE_PATHS: Dict[str, str] = {
+POSE_PATHS: dict[str, str] = {
     "x": PATH_X, "y": PATH_Y, "z": PATH_Z,
     "ox": PATH_OX, "oy": PATH_OY, "oz": PATH_OZ,
     "theta": PATH_THETA,
 }
 
-GEOM_PATHS: Dict[str, str] = {
+GEOM_PATHS: dict[str, str] = {
     "radius_mm": PATH_SPHERE_RADIUS,  # also matches capsule
     "length_mm": PATH_CAPSULE_LENGTH,
 }
 
-METADATA_PATHS: Dict[str, str] = {
+METADATA_PATHS: dict[str, str] = {
     "color": PATH_METADATA_COLOR,
     "opacity": PATH_METADATA_OPACITY,
     "show_axes_helper": PATH_METADATA_SHOW_AXES,
@@ -206,7 +206,7 @@ class Scene:
 
     def __init__(self, parent_frame: str = "world") -> None:
         self._parent_frame = parent_frame
-        self._state: Dict[str, SceneEntry] = {}
+        self._state: dict[str, SceneEntry] = {}
 
     # ---- introspection -------------------------------------------------
 
@@ -217,7 +217,7 @@ class Scene:
     def __len__(self) -> int:
         return len(self._state)
 
-    def __contains__(self, target: Union[str, Visual, Composite]) -> bool:
+    def __contains__(self, target: str | Visual | Composite) -> bool:
         return self._label_of(target) in self._state
 
     def __iter__(self) -> Iterator[Visual]:
@@ -227,14 +227,14 @@ class Scene:
         """Return all current labels, sorted."""
         return sorted(self._state)
 
-    def get(self, label: str) -> Optional[Visual]:
+    def get(self, label: str) -> Visual | None:
         """Return the live Visual for ``label``, or ``None``."""
         e = self._state.get(label)
         return e.visual if e is not None else None
 
     # ---- mutation ------------------------------------------------------
 
-    def add(self, *targets: Union[Visual, Composite]) -> List[SceneEvent]:
+    def add(self, *targets: Visual | Composite) -> list[SceneEvent]:
         """Add one or more visuals. Composites expand into their
         constituent Visuals; each constituent gets its own ADDED
         event. Returns the list of events in add order.
@@ -247,14 +247,14 @@ class Scene:
         for v in flat:
             if v.label in self._state:
                 raise ValueError(f"duplicate label {v.label!r}")
-        out: List[SceneEvent] = []
+        out: list[SceneEvent] = []
         for v in flat:
             d = v.to_dict()
             self._state[v.label] = SceneEntry(visual=v, committed=d)
             out.append(SceneEvent(kind=ADDED, label=v.label, item_dict=d))
         return out
 
-    def update(self, *targets: Union[Visual, Composite]) -> List[SceneEvent]:
+    def update(self, *targets: Visual | Composite) -> list[SceneEvent]:
         """Diff each target against its committed snapshot and return
         UPDATED events for the changed visuals. Composites expand;
         each constituent diffs independently.
@@ -292,7 +292,7 @@ class Scene:
         missing = [v.label for v in flat if v.label not in self._state]
         if missing:
             raise ValueError(f"unknown label(s): {missing}")
-        out: List[SceneEvent] = []
+        out: list[SceneEvent] = []
         for v in flat:
             entry = self._state[v.label]
             new_dict = v.to_dict()
@@ -319,14 +319,14 @@ class Scene:
             ))
         return out
 
-    def add_or_update(self, *targets: Union[Visual, Composite]) -> List[SceneEvent]:
+    def add_or_update(self, *targets: Visual | Composite) -> list[SceneEvent]:
         """Upsert — ADD any visuals not currently in the scene, UPDATE
         any that exist (returning the diff event only if something
         changed). Useful for tick loops that produce a fresh visual
         list each frame without tracking the lifecycle themselves.
         """
         flat = _flatten(targets)
-        out: List[SceneEvent] = []
+        out: list[SceneEvent] = []
         for v in flat:
             if v.label in self._state:
                 out.extend(self.update(v))
@@ -334,21 +334,21 @@ class Scene:
                 out.extend(self.add(v))
         return out
 
-    def remove(self, *targets: Union[str, Visual, Composite]) -> List[SceneEvent]:
+    def remove(self, *targets: str | Visual | Composite) -> list[SceneEvent]:
         """Remove one or more visuals by label or by object. Composite
         objects expand and remove each constituent. Visuals not in
         the scene are skipped silently — the call is idempotent.
         Returns REMOVED events for the visuals actually removed.
         """
         labels = _flatten_labels(targets)
-        out: List[SceneEvent] = []
+        out: list[SceneEvent] = []
         for label in labels:
             if label in self._state:
                 del self._state[label]
                 out.append(SceneEvent(kind=REMOVED, label=label))
         return out
 
-    def clear(self) -> List[SceneEvent]:
+    def clear(self) -> list[SceneEvent]:
         """Remove every visual from the scene. Returns REMOVED events
         for everything that was in the scene, in label order."""
         out = [SceneEvent(kind=REMOVED, label=lab) for lab in sorted(self._state)]
@@ -358,7 +358,7 @@ class Scene:
     # ---- internals -----------------------------------------------------
 
     @staticmethod
-    def _label_of(target: Union[str, Visual, Composite]) -> str:
+    def _label_of(target: str | Visual | Composite) -> str:
         if isinstance(target, str):
             return target
         if isinstance(target, Visual):
@@ -377,11 +377,11 @@ class Scene:
 # ---- helpers -----------------------------------------------------------
 
 def _flatten(
-    targets: Sequence[Union[Visual, Composite]],
-) -> List[Visual]:
+    targets: Sequence[Visual | Composite],
+) -> list[Visual]:
     """Expand composites into their constituent Visuals. Plain
     Visuals pass through unchanged."""
-    out: List[Visual] = []
+    out: list[Visual] = []
     for t in targets:
         if isinstance(t, Composite):
             out.extend(t.to_visuals())
@@ -395,11 +395,11 @@ def _flatten(
 
 
 def _flatten_labels(
-    targets: Sequence[Union[str, Visual, Composite]],
-) -> List[str]:
+    targets: Sequence[str | Visual | Composite],
+) -> list[str]:
     """Same as :func:`_flatten` but yields labels and accepts plain
     string labels too. Used by :meth:`Scene.remove`."""
-    out: List[str] = []
+    out: list[str] = []
     for t in targets:
         if isinstance(t, str):
             out.append(t)
@@ -415,7 +415,7 @@ def _flatten_labels(
     return out
 
 
-def events_to_wire(events: Sequence[SceneEvent]) -> List[Dict[str, Any]]:
+def events_to_wire(events: Sequence[SceneEvent]) -> list[dict[str, Any]]:
     """Serialize a list of :class:`SceneEvent` records to the dict form
     the ``apply_events`` DoCommand verb accepts.
 
@@ -428,9 +428,9 @@ def events_to_wire(events: Sequence[SceneEvent]) -> List[Dict[str, Any]]:
             "events": events_to_wire(events),
         })
     """
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for e in events:
-        rec: Dict[str, Any] = {"kind": e.kind, "label": e.label}
+        rec: dict[str, Any] = {"kind": e.kind, "label": e.label}
         if e.item_dict:
             rec["item"] = dict(e.item_dict)
         if e.paths:
@@ -457,7 +457,7 @@ def _requires_respawn(old: Mapping[str, Any], new: Mapping[str, Any]) -> bool:
 
 def _diff_paths(
     old: Mapping[str, Any], new: Mapping[str, Any],
-) -> List[str]:
+) -> list[str]:
     """Compute the field-mask path list describing what changed
     between two wire-format item dicts.
 
@@ -472,7 +472,7 @@ def _diff_paths(
     a re-spawn (REMOVED + ADDED with a fresh UUID) is required for
     the renderer to see metadata changes.
     """
-    paths: List[str] = []
+    paths: list[str] = []
     # Pose: per-subfield diff. The renderer's check is
     # ``path.startsWith('poseInObserverFrame.pose')`` and re-reads
     # the full pose, so emitting per-axis paths is informational —

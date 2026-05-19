@@ -13,7 +13,7 @@ import math
 import pytest
 
 from viam_visuals import Pose, lerp_pose
-from viam_visuals.pose import _ov_to_quat, _quat_to_ov, _slerp_quat
+from viam_visuals.pose import _ov_to_quat, _quat_to_ov
 
 
 def _rotate_vec_by_quat(q, v):
@@ -35,7 +35,7 @@ def _rotations_equivalent(q1, q2, tol=1e-6):
     for v in [(1, 0, 0), (0, 1, 0), (1, 2, 3)]:
         v1 = _rotate_vec_by_quat(q1, v)
         v2 = _rotate_vec_by_quat(q2, v)
-        for a, b in zip(v1, v2):
+        for a, b in zip(v1, v2, strict=True):
             if abs(a - b) > tol:
                 return False
     return True

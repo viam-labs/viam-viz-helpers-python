@@ -17,7 +17,6 @@ from viam_visuals import (
     Sphere,
 )
 
-
 # ---- add ---------------------------------------------------------------
 
 def test_add_single_visual_emits_added_event():

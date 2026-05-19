@@ -36,14 +36,13 @@ the primitive classes themselves as alternate constructors (e.g.,
 from __future__ import annotations
 
 import math
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Any
 
-from .animations import AnimationLike
 from .color import ColorLike
 from .pose import Pose, PoseLike, normalize_pose
 from .shapes import Arrow, Box, Capsule, Sphere, Visual
-
 
 __all__ = [
     "Composite",
@@ -75,7 +74,7 @@ class Composite:
         ``"f"`` anchor sphere. Pick distinct labels per composite.
     """
 
-    def to_visuals(self) -> List[Visual]:  # pragma: no cover - abstract
+    def to_visuals(self) -> list[Visual]:  # pragma: no cover - abstract
         raise NotImplementedError
 
     def __iter__(self) -> Iterator[Visual]:
@@ -121,25 +120,25 @@ class CoordinateFrame(Composite):
     label: str
     pose: PoseLike = None
     size_mm: float = 100.0
-    parent_frame: Optional[str] = None
+    parent_frame: str | None = None
     animation: Any = None  # AnimationLike
     show_axes_helper: bool = True
     anchor_radius_mm: float = 12.0
     axis_radius_mm: float = 8.0
-    axis_length_mm: Optional[float] = None  # defaults to size_mm
+    axis_length_mm: float | None = None  # defaults to size_mm
     anchor_color: ColorLike = (120, 120, 120)  # gray
-    anchor_opacity: Optional[float] = 0.6
+    anchor_opacity: float | None = 0.6
     axis_color_x: ColorLike = (230, 25, 75)
     axis_color_y: ColorLike = (60, 180, 75)
     axis_color_z: ColorLike = (0, 130, 200)
-    axis_opacity: Optional[float] = 1.0
+    axis_opacity: float | None = 1.0
 
-    def to_visuals(self) -> List[Visual]:
+    def to_visuals(self) -> list[Visual]:
         axis_len = float(
             self.axis_length_mm if self.axis_length_mm is not None
             else self.size_mm
         )
-        out: List[Visual] = [
+        out: list[Visual] = [
             Sphere(
                 self.label,
                 pose=self.pose,
@@ -205,9 +204,9 @@ class Line(Composite):
     label_prefix: str
     points: Sequence[Any] = field(default_factory=list)  # Pose or pose-like
     width_mm: float = 4.0
-    parent_frame: Optional[str] = None
+    parent_frame: str | None = None
     color: ColorLike = None
-    opacity: Optional[float] = 1.0
+    opacity: float | None = 1.0
 
     def __post_init__(self) -> None:
         if len(self.points) < 2:
@@ -215,8 +214,8 @@ class Line(Composite):
                 f"Line needs at least 2 points; got {len(self.points)}"
             )
 
-    def to_visuals(self) -> List[Visual]:
-        out: List[Visual] = []
+    def to_visuals(self) -> list[Visual]:
+        out: list[Visual] = []
         # Normalize each point to a full pose dict (so callers can pass
         # Pose, pose dict, or any sub-dict).
         pts = [normalize_pose(p) for p in self.points]
@@ -265,12 +264,12 @@ class BoundingBox(Composite):
     """
 
     label: str
-    dims_mm: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    dims_mm: tuple[float, float, float] = (0.0, 0.0, 0.0)
     pose: PoseLike = None
-    parent_frame: Optional[str] = None
+    parent_frame: str | None = None
     wireframe: bool = False
     color: ColorLike = None
-    opacity: Optional[float] = 1.0
+    opacity: float | None = 1.0
     edge_radius_mm: float = 2.0
 
     def __post_init__(self) -> None:
@@ -280,7 +279,7 @@ class BoundingBox(Composite):
                 f"got {self.dims_mm!r}"
             )
 
-    def to_visuals(self) -> List[Visual]:
+    def to_visuals(self) -> list[Visual]:
         if not self.wireframe:
             return [Box(
                 self.label, pose=self.pose, parent_frame=self.parent_frame,
@@ -289,7 +288,7 @@ class BoundingBox(Composite):
 
         dx, dy, dz = (float(d) for d in self.dims_mm)
         hx, hy, hz = dx / 2.0, dy / 2.0, dz / 2.0
-        out: List[Visual] = []
+        out: list[Visual] = []
         i = 0
 
         # 4 X-edges (length dx, oriented along ±X). Position varies
@@ -367,12 +366,12 @@ class TrajectoryPlan(Composite):
 
     label_prefix: str
     waypoints: Sequence[Any] = field(default_factory=list)  # PoseLike each
-    parent_frame: Optional[str] = None
+    parent_frame: str | None = None
 
     # Path line styling.
     line_color: ColorLike = (100, 180, 220)
     line_width_mm: float = 6.0
-    line_opacity: Optional[float] = 0.6
+    line_opacity: float | None = 0.6
 
     # Per-waypoint CoordinateFrame styling.
     show_frames: bool = True
@@ -380,8 +379,8 @@ class TrajectoryPlan(Composite):
     frame_anchor_radius_mm: float = 6.0
     frame_axis_radius_mm: float = 4.0
     frame_anchor_color: ColorLike = (120, 120, 120)
-    frame_anchor_opacity: Optional[float] = 0.5
-    frame_axis_opacity: Optional[float] = 1.0
+    frame_anchor_opacity: float | None = 0.5
+    frame_axis_opacity: float | None = 1.0
     frame_show_axes_helper: bool = False  # avoid renderer-side noise
 
     def __post_init__(self) -> None:
@@ -391,8 +390,8 @@ class TrajectoryPlan(Composite):
                 f"got {len(self.waypoints)}"
             )
 
-    def to_visuals(self) -> List[Visual]:
-        out: List[Visual] = []
+    def to_visuals(self) -> list[Visual]:
+        out: list[Visual] = []
         # Path line connecting the waypoint positions.
         out.extend(Line(
             label_prefix=f"{self.label_prefix}_path",

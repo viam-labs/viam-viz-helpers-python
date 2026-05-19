@@ -22,7 +22,8 @@ for the full version).
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from typing import Any
 
 from viam.proto.common import (
     Capsule,
@@ -36,7 +37,6 @@ from viam.proto.common import (
 from ._internal.constants import POINT_MARKER_RADIUS_MM
 from ._internal.mesh import arrow_ply_bytes
 
-
 RENDERER_MESH_CONTENT_TYPE = "ply"
 
 
@@ -45,7 +45,7 @@ __all__ = ["build_basic_geometry"]
 
 def build_basic_geometry(
     item: Mapping[str, Any],
-    override: Optional[Mapping[str, Any]] = None,
+    override: Mapping[str, Any] | None = None,
 ) -> Geometry:
     """Build a ``commonpb.Geometry`` from a wire-format item dict.
 

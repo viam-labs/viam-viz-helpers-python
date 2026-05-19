@@ -42,13 +42,13 @@ the upstream and naturally falls through to its gRPC stub.
 from __future__ import annotations
 
 from threading import Lock
-from typing import Any, Dict, Optional
+from typing import Any
 
 __all__ = ["register", "unregister", "lookup", "names"]
 
 
 _lock = Lock()
-_resources: Dict[str, Any] = {}
+_resources: dict[str, Any] = {}
 
 
 def register(name: str, instance: Any) -> None:
@@ -65,7 +65,7 @@ def unregister(name: str) -> None:
         _resources.pop(name, None)
 
 
-def lookup(name: str) -> Optional[Any]:
+def lookup(name: str) -> Any | None:
     """Return the instance registered under ``name``, or ``None`` if
     it isn't registered (typically: lives in a different module
     process)."""

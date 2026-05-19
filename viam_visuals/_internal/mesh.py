@@ -17,10 +17,8 @@ from __future__ import annotations
 import math
 import struct
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from .constants import SUPPORTED_MESH_CONTENT_TYPES
-
 
 __all__ = [
     "extract_ply_vertex_colors",
@@ -34,7 +32,7 @@ __all__ = [
 
 def extract_ply_vertex_colors(
     ply_bytes: bytes,
-) -> Optional[List[Tuple[int, int, int]]]:
+) -> list[tuple[int, int, int]] | None:
     """Parse an ASCII PLY and return per-vertex ``(R, G, B)`` tuples
     if the file carries ``property uchar red/green/blue`` alongside
     position. Returns ``None`` if the PLY doesn't have vertex colors
@@ -59,7 +57,7 @@ def extract_ply_vertex_colors(
 
     lines = text.split("\n")
     vertex_count = 0
-    vertex_properties: List[str] = []
+    vertex_properties: list[str] = []
     parsing_vertex_element = False
     header_end_line = None
     for i, line in enumerate(lines):
@@ -83,7 +81,7 @@ def extract_ply_vertex_colors(
     except ValueError:
         return None
 
-    colors: List[Tuple[int, int, int]] = []
+    colors: list[tuple[int, int, int]] = []
     for i in range(vertex_count):
         line_idx = header_end_line + i
         if line_idx >= len(lines):
@@ -103,9 +101,9 @@ def extract_ply_vertex_colors(
 
 
 def ply_ascii_bytes(
-    verts_mm: List[Tuple[float, float, float]],
-    faces: List[Tuple[int, ...]],
-    vertex_colors: Optional[List[Tuple[int, int, int]]] = None,
+    verts_mm: list[tuple[float, float, float]],
+    faces: list[tuple[int, ...]],
+    vertex_colors: list[tuple[int, int, int]] | None = None,
 ) -> bytes:
     """Build an ASCII PLY byte buffer from vertices and faces.
 
@@ -120,8 +118,7 @@ def ply_ascii_bytes(
     parallel transcode path through ``build_metadata`` is the
     reliable channel.
     """
-    has_colors = vertex_colors is not None
-    if has_colors and len(vertex_colors) != len(verts_mm):
+    if vertex_colors is not None and len(vertex_colors) != len(verts_mm):
         raise ValueError(
             f"vertex_colors length {len(vertex_colors)} != vertex count {len(verts_mm)}"
         )
@@ -133,7 +130,7 @@ def ply_ascii_bytes(
         "property float y",
         "property float z",
     ]
-    if has_colors:
+    if vertex_colors is not None:
         header.extend([
             "property uchar red",
             "property uchar green",
@@ -145,8 +142,9 @@ def ply_ascii_bytes(
         "end_header",
     ])
     lines = list(header)
-    if has_colors:
-        for (x, y, z), (r, g, b) in zip(verts_mm, vertex_colors):
+    if vertex_colors is not None:
+        # Lengths pre-validated above; strict=True for defense in depth.
+        for (x, y, z), (r, g, b) in zip(verts_mm, vertex_colors, strict=True):
             lines.append(
                 f"{x / 1000.0:.6f} {y / 1000.0:.6f} {z / 1000.0:.6f} "
                 f"{int(r) & 0xFF} {int(g) & 0xFF} {int(b) & 0xFF}"
@@ -164,8 +162,8 @@ def ply_ascii_bytes(
 def arrow_ply_bytes(
     length_mm: float,
     shaft_radius_mm: float,
-    tip_radius_mm: Optional[float] = None,
-    tip_length_mm: Optional[float] = None,
+    tip_radius_mm: float | None = None,
+    tip_length_mm: float | None = None,
     sides: int = 12,
 ) -> bytes:
     """Procedural arrow mesh along local +Z, returned as ASCII PLY bytes.
@@ -181,7 +179,7 @@ def arrow_ply_bytes(
         tip_length_mm = max(0.05 * length_mm, 0.28 * length_mm)
     shaft_length_mm = max(0.0, length_mm - tip_length_mm)
 
-    verts: List[Tuple[float, float, float]] = []
+    verts: list[tuple[float, float, float]] = []
     # v0: shaft bottom center (for the cap fan).
     verts.append((0.0, 0.0, 0.0))
     # v[1..sides]: shaft bottom ring.
@@ -216,7 +214,7 @@ def arrow_ply_bytes(
     top_ring_start = 1 + sides
     cone_ring_start = 1 + 2 * sides
 
-    faces: List[Tuple[int, ...]] = []
+    faces: list[tuple[int, ...]] = []
     # Shaft bottom cap fan around v0.
     for i in range(sides):
         v_curr = bot_ring_start + i
@@ -267,8 +265,8 @@ def stl_to_ply(stl_bytes: bytes) -> bytes:
             f"STL truncated: expected {expected_size} bytes for "
             f"{n_tris} triangles, got {len(stl_bytes)}"
         )
-    verts: List[Tuple[float, float, float]] = []
-    faces: List[Tuple[int, ...]] = []
+    verts: list[tuple[float, float, float]] = []
+    faces: list[tuple[int, ...]] = []
     offset = 84
     for _ in range(n_tris):
         offset += 12  # skip per-tri normal

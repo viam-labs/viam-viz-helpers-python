@@ -8,16 +8,15 @@ normalizes them so the rest of the library only ever sees the dict.
 
 from __future__ import annotations
 
-from typing import Mapping, Optional, Tuple, Union
-
+from collections.abc import Mapping
 
 __all__ = ["ColorLike", "hsv_to_rgb", "normalize_color", "snap_step"]
 
 
-ColorLike = Union[None, Mapping[str, int], Tuple[int, int, int]]
+ColorLike = Mapping[str, int] | tuple[int, int, int] | None
 
 
-def normalize_color(c: ColorLike) -> Optional[Mapping[str, int]]:
+def normalize_color(c: ColorLike) -> Mapping[str, int] | None:
     """Coerce a ColorLike into the wire-format dict.
 
     Accepts:
@@ -40,7 +39,7 @@ def normalize_color(c: ColorLike) -> Optional[Mapping[str, int]]:
     )
 
 
-def hsv_to_rgb(h: float, s: float = 1.0, v: float = 1.0) -> Tuple[int, int, int]:
+def hsv_to_rgb(h: float, s: float = 1.0, v: float = 1.0) -> tuple[int, int, int]:
     """Convert HSV (each in ``[0, 1]``) to an 8-bit RGB tuple.
 
     Useful for animations that cycle through the rainbow. Hue wraps:

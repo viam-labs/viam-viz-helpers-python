@@ -20,9 +20,8 @@ to remember the unit boundary).
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping, Tuple, Union
-
 
 __all__ = ["Pose", "PoseLike"]
 
@@ -45,7 +44,7 @@ class Pose:
     theta: float = 0.0
 
     @classmethod
-    def identity(cls) -> "Pose":
+    def identity(cls) -> Pose:
         """The identity pose: origin, OZ=1, theta=0."""
         return cls()
 
@@ -59,7 +58,7 @@ class Pose:
         oy: float = 0.0,
         oz: float = 1.0,
         theta: float = 0.0,
-    ) -> "Pose":
+    ) -> Pose:
         """Build a pose with positional defaults — handy when only
         the position matters and orientation should stay identity.
 
@@ -80,7 +79,7 @@ class Pose:
 
 # Accepted by every Visual constructor: a Pose, a partial dict (missing
 # keys filled with identity defaults), or None (→ identity).
-PoseLike = Union[None, Pose, Mapping[str, float]]
+PoseLike = Pose | Mapping[str, float] | None
 
 
 def lerp_pose(a: PoseLike, b: PoseLike, t: float) -> Pose:
@@ -150,7 +149,7 @@ def _from_like(p: PoseLike) -> Pose:
     raise TypeError(f"unsupported PoseLike: {type(p).__name__}")
 
 
-_Quat = Tuple[float, float, float, float]
+_Quat = tuple[float, float, float, float]
 
 
 def _ov_to_quat(ox: float, oy: float, oz: float, theta_deg: float) -> _Quat:
@@ -193,7 +192,7 @@ def _ov_to_quat(ox: float, oy: float, oz: float, theta_deg: float) -> _Quat:
 _POLE_RADIUS = 1e-4  # matches RDK's orientationVectorPoleRadius / defaultAngleEpsilon
 
 
-def _quat_to_ov(w: float, x: float, y: float, z: float) -> Tuple[float, float, float, float]:
+def _quat_to_ov(w: float, x: float, y: float, z: float) -> tuple[float, float, float, float]:
     """Inverse of :func:`_ov_to_quat`. Returns ``(ox, oy, oz, theta_deg)``.
 
     Ported from RDK's ``spatialmath.QuatToOV`` so the OV → R map used

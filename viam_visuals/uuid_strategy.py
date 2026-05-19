@@ -27,7 +27,6 @@ from __future__ import annotations
 import threading
 import time
 
-
 __all__ = ["VALID_STRATEGIES", "initial_uuid", "versioned_uuid"]
 
 

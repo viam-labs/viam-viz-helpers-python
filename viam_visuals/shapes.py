@@ -16,13 +16,13 @@ in this release.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple
+from typing import Any
 
-from .animations import AnimationLike, normalize_animation
+from .animations import normalize_animation
 from .color import ColorLike, normalize_color
 from .pose import Pose, PoseLike, normalize_pose
-
 
 __all__ = [
     "Visual",
@@ -50,9 +50,9 @@ class Visual:
 
     label: str
     pose: PoseLike = None
-    parent_frame: Optional[str] = None
+    parent_frame: str | None = None
     color: ColorLike = None
-    opacity: Optional[float] = None
+    opacity: float | None = None
     show_axes_helper: bool = False
     invisible: bool = False
     # AnimationLike (Union of None / Animation / Mapping). Typed as
@@ -116,7 +116,7 @@ class Visual:
 class Box(Visual):
     """Solid axis-aligned box. ``dims_mm`` is ``(x, y, z)`` in mm."""
 
-    dims_mm: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    dims_mm: tuple[float, float, float] = (0.0, 0.0, 0.0)
     _TYPE: str = field(default="box", repr=False, init=False)
 
     def __post_init__(self) -> None:
@@ -252,14 +252,14 @@ class Arrow(Visual):
     def from_to(
         cls,
         label: str,
-        start: "Pose",
-        end: "Pose",
+        start: Pose,
+        end: Pose,
         radius_mm: float,
         color: Any = None,
-        opacity: Optional[float] = None,
-        parent_frame: Optional[str] = None,
+        opacity: float | None = None,
+        parent_frame: str | None = None,
         animation: Any = None,
-    ) -> "Arrow":
+    ) -> Arrow:
         """Build an Arrow pointing from ``start`` to ``end``.
 
         The arrow's pose origin sits at ``start``; its orientation
@@ -352,7 +352,7 @@ class PointCloud(Visual):
 
     pointcloud_path: str = ""
     chunked: bool = False
-    chunk_size: Optional[int] = None
+    chunk_size: int | None = None
     _TYPE: str = field(default="pointcloud", repr=False, init=False)
 
     def __post_init__(self) -> None:

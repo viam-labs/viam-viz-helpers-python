@@ -37,11 +37,11 @@ Available modes
 
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, List, Mapping, MutableMapping, Optional, Union
+from typing import Any, ClassVar
 
 from .pose import normalize_pose
-
 
 __all__ = [
     "Animation",
@@ -203,10 +203,16 @@ class Oscillate(Animation):
         return out
 
     def apply(self, visual: Any, base: Any, t: float) -> None:
+        from typing import Literal, cast
+
         from .anim_helpers import oscillate_pose
+        # self.axis is `str` for wire-format flexibility; the helper
+        # narrows to Literal["x", "y", "z"]. Bad values raise from the
+        # helper, so we narrow without runtime validation here.
+        axis = cast(Literal["x", "y", "z"], self.axis)
         visual.pose = oscillate_pose(
             base.pose, self.period_s, self.amplitude_mm,
-            t + self.phase_offset_s, axis=self.axis,
+            t + self.phase_offset_s, axis=axis,
         )
 
 
@@ -246,7 +252,7 @@ class Pulse(Animation):
 
     amplitude_mm: float = 50.0
     period_s: float = 2.0
-    axis: Optional[str] = None
+    axis: str | None = None
     _MODE: str = field(default="pulse", repr=False, init=False)
 
     def _fields(self) -> Mapping[str, Any]:
@@ -431,6 +437,7 @@ class ForceVector(Animation):
 
     def apply(self, visual: Any, base: Any, t: float) -> None:
         import math
+
         from .color import hsv_to_rgb
         from .pose import Pose
         from .shapes import Arrow
@@ -470,7 +477,7 @@ class Trajectory(Animation):
     or pose dicts (same shape as :meth:`Pose.to_dict`).
     """
 
-    waypoints: List[Any] = field(default_factory=list)
+    waypoints: list[Any] = field(default_factory=list)
     duration_s: float = 12.0
     loop: bool = True
     _MODE: str = field(default="trajectory", repr=False, init=False)
@@ -482,7 +489,7 @@ class Trajectory(Animation):
             )
 
     def _fields(self) -> Mapping[str, Any]:
-        wps: List[Mapping[str, float]] = [dict(normalize_pose(wp))
+        wps: list[Mapping[str, float]] = [dict(normalize_pose(wp))
                                           for wp in self.waypoints]
         return {
             "waypoints": wps,
@@ -498,10 +505,10 @@ class Trajectory(Animation):
 
 
 # Type alias for what Visual.animation accepts.
-AnimationLike = Union[None, Animation, Mapping[str, Any]]
+AnimationLike = Animation | Mapping[str, Any] | None
 
 
-def normalize_animation(a: AnimationLike) -> Optional[Mapping[str, Any]]:
+def normalize_animation(a: AnimationLike) -> Mapping[str, Any] | None:
     """Coerce an AnimationLike into the wire-format dict, or None."""
     if a is None:
         return None
