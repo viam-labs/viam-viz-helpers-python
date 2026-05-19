@@ -19,8 +19,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/viam-labs/viam-viz-helpers"
-Repository = "https://github.com/viam-labs/viam-viz-helpers"
+Homepage = "https://github.com/viam-labs/viam-viz-helpers-python"
+Repository = "https://github.com/viam-labs/viam-viz-helpers-python"
 "Reference module" = "https://github.com/viam-labs/example-visualizations-python"
 
 [project.optional-dependencies]
